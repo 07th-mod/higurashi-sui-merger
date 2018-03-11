@@ -1,9 +1,7 @@
 import os
 import xml.etree.ElementTree as ET
 import pickle
-import difflib
 import json
-import operator
 
 import conf
 import ps3hiratranslator
@@ -20,13 +18,21 @@ MAX_FAILED_MATCH = 3
 def filter_line_for_comparison(in_line):
     return ''.join([c for c in in_line if 0x3040 < ord(c) < 0x9faf])
 
+
 def line_probably_is_dialogue(line):
+    """
+    This function attempts to figure out if a given line is Japanese Dialogue. It is only used in Mode 0 (look for
+    Japanese dialogue in comments).
+    :param line: The input line to test for being dialogue or not.
+    :return: True if line is japanese dialogue, false otherwise
+    """
     filtered = filter_line_for_comparison(line)
     if filtered:
         if '@' in line or '＠' in line or '\\' in line or '￥' in line or line[-1] == '/':
             return True
 
     return False
+
 
 class Dialogue:
     """
@@ -70,6 +76,7 @@ def get_dialogue_and_instructions_from_ps3xml(input_xml_path, skip_blank=True):
 
     return all_dialogue, entire_xml
 
+
 def get_original_script_japanese_lines_filtered(original_script_filepath, mode):
     """
     Extract the japanese comment lines from the modded manga gamer script? the original script.
@@ -80,15 +87,6 @@ def get_original_script_japanese_lines_filtered(original_script_filepath, mode):
     start_scanning = False
     with open(original_script_filepath, encoding=conf.encoding) as script_to_patch_file:
         for i,line in enumerate(script_to_patch_file):
-            # if '<START_PS3_INSERTION>' in line:
-            #     start_scanning = True
-            #
-            # if '<END_PS3_INSERTION>' in line:
-            #     if not start_scanning:
-            #         raise Exception('ERROR - START PS3 INSERTION MISSING FROM SCRIPT (got end insertion)')
-            #     break
-            #
-            # if start_scanning:
             if mode == 0:
                 if '//' in line:
                     filtered_line = filter_line_for_comparison(line)
@@ -114,31 +112,17 @@ def get_original_script_japanese_lines_filtered(original_script_filepath, mode):
 
     return output_lines
 
-def block_match(ps3_line, original_line):
-    s = difflib.SequenceMatcher(None, ps3_line, original_line)
-    characters_which_match = 0
-    max_match_length = 0
 
-    for block in s.get_matching_blocks():
-        if block[2] == 0:
-            break
-        if block[2] > max_match_length:
-            max_match_length = block[2]
-        # print("a[{}] and b[{}] match for {} elements".format(*block))
-        characters_which_match += block[2]
-
-    continous_matches_squared_score = sum([block[2]*block[2] for block in s.get_matching_blocks()])
-
-    #match critiera either a contiguous block of at least 6 characters OR
-    #match at least  minium of (12 characters, 70% of line length)
-    return characters_which_match, max_match_length, continous_matches_squared_score
-
-# block_match(r'書斎の中は積み上げられた書物と資料でいっぱいだった',r'ランディーくん人形ーあそりゃあレナのツボだわなぁ')
-# exit(-1)
-
-#note: perhaps test running with '-w' and not '-w' - they give slightly different results
-#this is copied from other project (diff_and_match.py)
 def run_diff(base_filename, modified_filename, diff_output_filename):
+    """
+    This function is a wrapper which just calls the command line 'git diff' with some sane default arguments.
+    #note: perhaps test running with '-w' and not '-w' - they give slightly different results
+
+    :param base_filename: The 'original' file to be diffed
+    :param modified_filename: The 'changed' file to be diffed
+    :param diff_output_filename: The location the diff should be saved to.
+    :return:
+    """
     os.system(r'git diff --no-index --ignore-blank-lines -w -U1000000 {} {}  > {}'.format(base_filename, modified_filename, diff_output_filename)) #], cwd=r'c:\temp')
 
 
@@ -244,18 +228,14 @@ def merge_ps3_into_mangagamer(ps3_script_as_xml_path, script_to_patch_path, scri
             ps3_dialogue_text_dump_file.write(all_dialogue_objects_as_text)
             ps3_dialogue_text_dump_file.write('\n')
 
-
+    #load the pickled .xml instructions and dialogue lines
     with open(ps3_dialogue_dump_path, 'rb') as ps3_dialogue_dump_file:
         ps3_dialoge_object_array = pickle.load(ps3_dialogue_dump_file)
 
     with open(ps3_xml_dump_path, 'rb') as ps3_full_dump_file:
         ps3_xml_full = pickle.load(ps3_full_dump_file)
 
-
     mapping = get_mapping(ps3_dialoge_object_array, script_to_patch_path, forward_search_range=forward_search_range, temp_folder=temp_folder, ps3_dialogue_as_text=ps3_dialog_text_dump_path, japanese_line_mode=mode)
-
-    # for result in mapping:
-    #     print('mapping', result)
 
     # get a table listing what instructions are before each dialogue, indexed by dialogue number
     # TODO: pickle this...
