@@ -1,4 +1,5 @@
 import os
+import re
 import xml.etree.ElementTree as ET
 import pickle
 import json
@@ -8,6 +9,9 @@ import ps3hiratranslator
 
 MAX_FAILED_MATCH = 3
 
+#voice_match_regex = re.compile(r"[ -~]+/[ -~]+/[ -~]+")
+ascii_match_regex = re.compile(r"[ -~]+")
+
 #keep only japanese characters
 #remove spaces
 # is_japanese_punct = in_range(code_point, 0x3000, 0x303f) NO
@@ -16,7 +20,23 @@ MAX_FAILED_MATCH = 3
 # is_ideograph = in_range(code_point, 0x4e00, 0x9faf) YES
 #this function should also remove newlines etc.
 def filter_line_for_comparison(in_line):
-    return ''.join([c for c in in_line if 0x3040 < ord(c) < 0x9faf])
+    # TODO: should make the script show which line was mapped to which line! (showing the diff values in addition to 'real' line content)
+    # This splits the line into sentence fragments (if any) and then just takes the first one.
+    # If you split the line: 魅音rvS01/03/120300039.「二人ともなぁに自信ないこと言ってんだか！kvS01/03/120300040.�二人なかよくビリにな っちゃうよ〜？」
+    #          it gives you: ['魅音', '「二人ともなぁに自信ないこと言ってんだか！', '�二人なかよくビリになっちゃうよ〜？」']
+    # then you take the second element of the array, and use that for line matching.
+    # The following test cases can also occur:
+    # r不覚にも、転んだ時に腰をひねったらしかった。k…すずりよりはマシか。 <- Note: no voice cmd but has 'r' and 'k'
+    # 梨花rvS19/05/990500001.「…圭一の痛いの痛いの、飛んで行けです」
+    # 圭一rvS01/01/120100064.「なに？！kvS01/01/120100065.�もう？！？！
+    sentence_fragments = re.split(ascii_match_regex, in_line, maxsplit=2)
+
+    if len(sentence_fragments) >= 2:
+        in_line = sentence_fragments[1]
+
+    ret_line = ''.join([c for c in in_line if 0x3040 < ord(c) < 0x9faf])
+
+    return ret_line
 
 
 def line_probably_is_dialogue(line):
@@ -99,7 +119,7 @@ def get_original_script_japanese_lines_filtered(original_script_filepath, mode):
             elif mode == 1:
                 if 'OutputLine' in line:
                     filtered_line = filter_line_for_comparison(line.strip())
-                    if len(filtered_line) > 4:
+                    if len(filtered_line) > 2: #min length to scan line in original script was 4 !
                         start_scanning = True
                         output_lines.append((i, filtered_line))
             else:
@@ -284,7 +304,7 @@ def merge_ps3_into_mangagamer(ps3_script_as_xml_path, script_to_patch_path, scri
                 print('Unknown mode!')
                 exit(-1)
 
-            original_script_all_lines[line_to_insert_on] = ''.join([original_script_all_lines[line_to_insert_on], '//JSON_INSTRUCTIONS: ', json.dumps(all_instructions), '\n'])
+            original_script_all_lines[line_to_insert_on] = ''.join([original_script_all_lines[line_to_insert_on], '//JSON_INSTRUCTIONS: ', json.dumps(all_instructions, ensure_ascii=False), '\n'])
         # else:
         #     if '//' in line:
         #         print('ERROR - NO MATCH FOUND', line)
