@@ -63,6 +63,7 @@ class Dialogue:
         self.num = int(num)
         self.type = int(dlgtype)
         self.data = ps3hiratranslator.translate_and_unescape(data)
+        self.old_data = data
         if do_preprocess:
             self.data = filter_line_for_comparison(self.data)
 
@@ -158,7 +159,7 @@ def get_mapping(ps3_dialogue_object_array : [Dialogue], original_script_filepath
     #generate filepaths for temporary files
     original_script_folder, original_script_filename = os.path.split(original_script_filepath)
     original_script_japanese_lines_path = os.path.join(temp_folder, original_script_filename + 'japanese_lines_only.txt')
-    diff_output_path = os.path.join(temp_folder, original_script_filename + 'ps3diff.txt')
+    diff_output_path = os.path.join(temp_folder, original_script_filename + '.ps3diff.txt')
 
     #get only japanese lines from original script, with line numbers.
     original_script =  get_original_script_japanese_lines_filtered(original_script_filepath, japanese_line_mode)
@@ -184,6 +185,10 @@ def get_mapping(ps3_dialogue_object_array : [Dialogue], original_script_filepath
         #ignore the first 5 lines of file
         diff_all_lines = diff_all_lines[5:]
 
+    debug_diff_mg = open(diff_output_path + '.mg.diff', 'w', encoding=conf.encoding)
+    debug_diff_ps3 = open(diff_output_path + '.ps3.diff', 'w', encoding=conf.encoding)
+
+
     line_association = {}
 
     ps3_lines_to_associate = []
@@ -195,13 +200,22 @@ def get_mapping(ps3_dialogue_object_array : [Dialogue], original_script_filepath
         line = line_with_type[1:]
 
         if type == '+':   #ps3 line exists but no such mg line - associate it with the next MG line
+            debug_diff_mg.write('\n')
+            debug_diff_ps3.write(ps3_dialogue_object_array[ps3_line_counter].old_data.strip() + '\n')
+
             ps3_lines_to_associate.append(ps3_line_counter)
             ps3_line_counter += 1
         elif type == '-':    #MG line exists but no such line in ps3 script - note that the MG line is not associated with any ps3 line
+            debug_diff_mg.write(original_script_japanese_only_lines[mg_line_counter].strip() + '\n')
+            debug_diff_ps3.write('\n')
+
             if debug:
                 print('MG line has no corresponding PS3 line!', ps3_line_counter, line)
             mg_line_counter += 1
         elif type == ' ':  #lines are identical
+            debug_diff_mg.write(original_script_japanese_only_lines[mg_line_counter].strip() + '\n')
+            debug_diff_ps3.write(ps3_dialogue_object_array[ps3_line_counter].old_data.strip() + '\n')
+
             # print('lines are the same:', line.strip())
             # print('adding line_association[{}]:{} lines are the same:{}'.format(mg_line_counter,ps3_lines_to_associate, line.strip()) )
 
