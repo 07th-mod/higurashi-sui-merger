@@ -24,8 +24,11 @@ def debug_process_diff(path_to_diff):
     if first_non_plus_line is None:
         first_non_plus_line = 0
 
-    cropped_diff = all_lines[max(first_non_plus_line-100, 0):
-                             min(last_non_plus_line+100, len(all_lines))]
+    cropped_diff_start = max(first_non_plus_line-100, 0)
+    cropped_diff_end = min(last_non_plus_line+100, len(all_lines))
+
+    cropped_diff = all_lines[cropped_diff_start: cropped_diff_end]
+    print("Diff matched region from {} to {}".format(cropped_diff_start/len(all_lines)*100, cropped_diff_end/len(all_lines)*100))
 
     with open(path_to_diff + '.cropped.txt', 'w', encoding=conf.encoding) as cropped_diff_file:
         cropped_diff_file.write(""""Raw dif follows. ' ' indicates files are the same, 
@@ -72,8 +75,54 @@ print('Temp Folder: {}'.format(TEMP_FOLDER))
 print('Working Folder: {}'.format(WORKING_FOLDER))
 print('PS3 XML Expected path: {}'.format(ps3_script_as_xml_path))
 
+# merge all the scripts together to improve matching
+all_input_merged_path = os.path.join(INPUT_FOLDER, 'all_input_merged.txt')
+
+#maching sections ->
+# 0,1,2,3,4,5
+# 9, 9_02 10,11
+# 12 13 14
+# 14, 14_02
+# 15
+# 15_02, 15_03
+
+files_to_join = [x.strip() for x in """
+onik_000.txt
+onik_001.txt
+onik_002.txt
+onik_003.txt
+onik_004.txt
+onik_005.txt
+onik_009.txt
+#  onik_009_02.txt
+onik_010.txt
+onik_011.txt
+onik_012.txt
+onik_013.txt
+onik_014.txt
+onik_014_02.txt
+# onik_015.txt
+onik_015_02.txt
+onik_015_03.txt
+
+""".splitlines() if x.strip() != '' and x[0] != '#']
+
+all_script_lines = []
+
+for script_path_filename in files_to_join:
+    full_path = os.path.join(INPUT_FOLDER, script_path_filename)
+    with open(full_path, encoding=conf.encoding) as f:
+        all_script_lines.extend(f.readlines())
+
+with open(all_input_merged_path, 'w', encoding=conf.encoding) as f:
+    f.writelines(all_script_lines)
+
+
+# files_to_process = get_input_files(INPUT_FOLDER)
+files_to_process = [all_input_merged_path]
+
 #input files folder
-for script_to_patch_path in get_input_files(INPUT_FOLDER):
+for script_to_patch_path in files_to_process:
 
     try:
         print('\n\nPatching "{}"...'.format(script_to_patch_path))
