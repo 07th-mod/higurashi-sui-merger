@@ -1,3 +1,10 @@
+# DO NOT USE THIS REPO ANYMORE
+## Please use the c# version of the merger located here: https://github.com/07th-mod/cs-sui-merger
+
+To clean up the organization repo list, please transfer this repo back to my account.
+
+# DO NOT USE THIS REPO ANYMORE
+
 # higurashi-sui-merger
 
 This program merges the sui .xml instructions into MG formatted game scripts. Two merged scripts are generated - one 
